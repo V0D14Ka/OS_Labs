@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include "Lib/lib.hpp"
 
 int main() {
