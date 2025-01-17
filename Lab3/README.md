@@ -23,3 +23,26 @@ cd Lab3
 sudo chmod 777 script.sh
 ./script.sh
 ```
+
+### Logfile
+
+```
+Program started, PID: 28944 Start time: Fri Jan 17 17:33:21 2025
+
+Time: 2025-01-17 17:33:22 Process ID: 28944 Counter: 3
+Time: 2025-01-17 17:33:23 Process ID: 28944 Counter: 6
+Child1 started at 2025-01-17 17:33:24, PID: 28944
+Child1 added counter by 10, new value: 19
+Child1 finished at 2025-01-17 17:33:24, PID: 28944 Duration: 0 seconds
+Child2 started at 2025-01-17 17:33:24, PID: 28944
+Child2 multiplied counter by 2, new value: 38
+Time: 2025-01-17 17:33:24 Process ID: 28944 Counter: 38
+Time: 2025-01-17 17:33:25 Process ID: 28944 Counter: 42
+Child2 divided counter by 2, new value: 22
+Child2 finished at 2025-01-17 17:33:26, PID: 28944 Duration: 2 seconds
+Time: 2025-01-17 17:33:26 Process ID: 28944 Counter: 22
+Time: 2025-01-17 17:33:27 Process ID: 28944 Counter: 25
+Time: 2025-01-17 17:33:28 Process ID: 28944 Counter: 28
+Child1 started at 2025-01-17 17:33:29, PID: 28944
+Child1 added counter by 10, new value: 41
+```
