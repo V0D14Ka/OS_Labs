@@ -20,7 +20,9 @@
 #ifdef _WIN32
 DWORD WINAPI spawnChild1(LPVOID param);
 DWORD WINAPI spawnChild2(LPVOID param);
+bool isMaster;
 #else
+bool isMaster;
 void* spawnChild1(void* param);
 void* spawnChild2(void* param);
 #endif
@@ -34,6 +36,7 @@ void writeLog(const std::string& message) {
     } else {
         std::cerr << "Failed to open log file!" << std::endl;
     }
+    
 }
 
 // Функция для получения текущего времени в строковом формате
@@ -264,7 +267,15 @@ int main(int argc, char* argv[]) {
     try {
         SharedMemory sharedMemory("SharedMemory");
         SharedData* sharedData = sharedMemory.get();
-        sharedData->counter.store(0);
+        //пророверяем, можем ли мы стать мастером
+        isMaster = !sharedData->isMaster.exchange(true);
+
+        if (isMaster) {
+            sharedData->counter.store(0);
+            writeLog("This program is the master, PID: " + std::to_string(GetCurrentProcessId()));
+        } else {
+            std::cout << "This program is a worker, PID: " + std::to_string(GetCurrentProcessId()) << std::endl;
+        }
 
         // Записываем начальную информацию в лог
         auto now = std::chrono::system_clock::now();
@@ -273,17 +284,20 @@ int main(int argc, char* argv[]) {
 
 #ifdef _WIN32
         CreateThread(nullptr, 0, timer, sharedData, 0, nullptr);
-        CreateThread(nullptr, 0, logTime, sharedData, 0, nullptr);
-        CreateThread(nullptr, 0, monitorChildren, sharedData, 0, nullptr);
+        if (isMaster) {
+            CreateThread(nullptr, 0, logTime, sharedData, 0, nullptr);
+            CreateThread(nullptr, 0, monitorChildren, sharedData, 0, nullptr);
+        }
 #else
         pthread_t timerThread, logTimeThread, monitorThread;
         pthread_create(&timerThread, nullptr, timer, sharedData);
-        pthread_create(&logTimeThread, nullptr, logTime, sharedData);
-        pthread_create(&monitorThread, nullptr, monitorChildren, sharedData);
-
         pthread_join(timerThread, nullptr);
-        pthread_join(logTimeThread, nullptr);
-        pthread_join(monitorThread, nullptr);
+        if (isMaster) {
+            pthread_create(&logTimeThread, nullptr, logTime, sharedData);
+            pthread_create(&monitorThread, nullptr, monitorChildren, sharedData);
+            pthread_join(logTimeThread, nullptr);
+            pthread_join(monitorThread, nullptr);
+        }
 #endif
 
         // Интерфейс командной строки для установки значения счетчика

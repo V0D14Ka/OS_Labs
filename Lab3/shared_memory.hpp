@@ -18,6 +18,7 @@
 
 struct SharedData {
     std::atomic<int> counter;
+    std::atomic<bool> isMaster{false};
 #ifdef _WIN32
     CRITICAL_SECTION criticalSection;
 #else
