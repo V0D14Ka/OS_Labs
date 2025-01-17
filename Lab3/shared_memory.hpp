@@ -103,8 +103,6 @@ public:
 private:
 #ifdef _WIN32
     HANDLE hMapFile;
-#else
-    SharedData* sharedData;
 #endif
     SharedData* sharedData;
 };

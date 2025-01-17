@@ -112,7 +112,11 @@ void* logTime(void* param) {
 #else
         pthread_mutex_lock(&sharedData->mutex);
 #endif
+#ifdef _WIN32
         writeLog("Time: " + std::string(buffer) + " Process ID: " + std::to_string(GetCurrentProcessId()) + " Counter: " + std::to_string(sharedData->counter.load()));
+#else
+        writeLog("Time: " + std::string(buffer) + " Process ID: " + std::to_string(getpid()) + " Counter: " + std::to_string(sharedData->counter.load()));
+#endif
 #ifdef _WIN32
         LeaveCriticalSection(&sharedData->criticalSection);
 #else
@@ -182,8 +186,12 @@ void* spawnChild1(void* param) {
     SharedData* sharedData = (SharedData*)param;
     auto start_time = std::chrono::system_clock::now();
     std::string start_time_str = getCurrentTimeString();
-    writeLog("Child1 started at " + start_time_str + ", PID: " + std::to_string(GetCurrentProcessId()));
 
+#ifdef _WIN32
+    writeLog("Child1 started at " + start_time_str + ", PID: " + std::to_string(GetCurrentProcessId()));
+#else
+    writeLog("Child1 started at " + start_time_str + ", PID: " + std::to_string(getpid()));
+#endif
 #ifdef _WIN32
     EnterCriticalSection(&sharedData->criticalSection);
 #else
@@ -200,7 +208,12 @@ void* spawnChild1(void* param) {
     auto end_time = std::chrono::system_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
     std::string end_time_str = getCurrentTimeString();
+
+#ifdef _WIN32
     writeLog("Child1 finished at " + end_time_str + ", PID: " + std::to_string(GetCurrentProcessId()) + " Duration: " + std::to_string(duration) + " seconds");
+#else
+    writeLog("Child1 finished at " + end_time_str + ", PID: " + std::to_string(getpid()) + " Duration: " + std::to_string(duration) + " seconds");
+#endif
 
 #ifdef _WIN32
     return 0;
@@ -218,8 +231,11 @@ void* spawnChild2(void* param) {
     SharedData* sharedData = (SharedData*)param;
     auto start_time = std::chrono::system_clock::now();
     std::string start_time_str = getCurrentTimeString();
+#ifdef _WIN32
     writeLog("Child2 started at " + start_time_str + ", PID: " + std::to_string(GetCurrentProcessId()));
-
+#else
+    writeLog("Child2 started at " + start_time_str + ", PID: " + std::to_string(getpid()));
+#endif
     // Блокируем только для изменения счетчика (умножение на 2)
 #ifdef _WIN32
     EnterCriticalSection(&sharedData->criticalSection);
@@ -234,9 +250,11 @@ void* spawnChild2(void* param) {
     pthread_mutex_unlock(&sharedData->mutex);
 #endif
 
-    // Эмуляция ожидания 2 секунд без блокировки счетчика
+#ifdef _WIN32
     Sleep(2000);  // Эмуляция ожидания 2 секунды
-
+#else
+    sleep(2);
+#endif
     // Делим счетчик на 2, снова блокируем для атомарной операции
 #ifdef _WIN32
     EnterCriticalSection(&sharedData->criticalSection);
@@ -254,7 +272,12 @@ void* spawnChild2(void* param) {
     auto end_time = std::chrono::system_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
     std::string end_time_str = getCurrentTimeString();
+
+#ifdef _WIN32
     writeLog("Child2 finished at " + end_time_str + ", PID: " + std::to_string(GetCurrentProcessId()) + " Duration: " + std::to_string(duration) + " seconds");
+#else
+    writeLog("Child2 finished at " + end_time_str + ", PID: " + std::to_string(getpid()) + " Duration: " + std::to_string(duration) + " seconds");
+#endif
 
 #ifdef _WIN32
     return 0;
@@ -272,15 +295,21 @@ int main(int argc, char* argv[]) {
 
         if (isMaster) {
             sharedData->counter.store(0);
+#ifdef _WIN32
             writeLog("This program is the master, PID: " + std::to_string(GetCurrentProcessId()));
-        } else {
-            std::cout << "This program is a worker, PID: " + std::to_string(GetCurrentProcessId()) << std::endl;
+#else
+            writeLog("This program is the master, PID: " + std::to_string(getpid()));
+#endif
         }
 
         // Записываем начальную информацию в лог
         auto now = std::chrono::system_clock::now();
         auto start_time = std::chrono::system_clock::to_time_t(now);
+#ifdef _WIN32
         writeLog("Program started, PID: " + std::to_string(GetCurrentProcessId()) + " Start time: " + ctime(&start_time));
+#else
+        writeLog("Program started, PID: " + std::to_string(getpid()) + " Start time: " + ctime(&start_time));
+#endif
 
 #ifdef _WIN32
         CreateThread(nullptr, 0, timer, sharedData, 0, nullptr);
