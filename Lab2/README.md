@@ -5,13 +5,13 @@
 
 ### Windows
 ```
-cd Lab1
+cd Lab2
 ./script.cmd
 ```
 
 ### Linux
 ```
-cd Lab1
+cd Lab2
 sudo chmod 777 script.sh
 ./script.sh
 ```
