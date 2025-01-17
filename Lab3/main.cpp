@@ -5,7 +5,6 @@
 #include <ctime>
 #include <string>
 #include "shared_memory.hpp"
-
 #ifdef _WIN32
     #include <windows.h>
 #else
@@ -13,8 +12,17 @@
     #include <sys/mman.h>
     #include <fcntl.h>
     #include <unistd.h>
-    #include <cstring>
+    <cstring>
     #include <errno.h>
+#endif
+
+// Объявление функций spawnChild1 и spawnChild2
+#ifdef _WIN32
+DWORD WINAPI spawnChild1(LPVOID param);
+DWORD WINAPI spawnChild2(LPVOID param);
+#else
+void* spawnChild1(void* param);
+void* spawnChild2(void* param);
 #endif
 
 // Функция для записи в лог
@@ -26,6 +34,17 @@ void writeLog(const std::string& message) {
     } else {
         std::cerr << "Failed to open log file!" << std::endl;
     }
+}
+
+// Функция для получения текущего времени в строковом формате
+std::string getCurrentTimeString() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    char buffer[26];
+    struct tm* tm_info;
+    tm_info = localtime(&time);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+    return std::string(buffer);
 }
 
 // Поток, который увеличивает счетчик
@@ -104,86 +123,6 @@ void* logTime(void* param) {
 #endif
 }
 
-// Поток для первого дочернего процесса
-#ifdef _WIN32
-DWORD WINAPI spawnChild1(LPVOID param) {
-#else
-void* spawnChild1(void* param) {
-#endif
-    SharedData* sharedData = (SharedData*)param;
-    auto start_time = std::chrono::system_clock::now();
-    writeLog("Child1 started, PID: " + std::to_string(GetCurrentProcessId()));
-
-#ifdef _WIN32
-    EnterCriticalSection(&sharedData->criticalSection);
-#else
-    pthread_mutex_lock(&sharedData->mutex);
-#endif
-    sharedData->counter.fetch_add(10);  // Атомарное увеличение на 10
-    writeLog("Child1 added counter by 10, new value: " + std::to_string(sharedData->counter.load()));
-#ifdef _WIN32
-    LeaveCriticalSection(&sharedData->criticalSection);
-#else
-    pthread_mutex_unlock(&sharedData->mutex);
-#endif
-
-    auto end_time = std::chrono::system_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
-
-    writeLog("Child1 finished, PID: " + std::to_string(GetCurrentProcessId()) + " Duration: " + std::to_string(duration) + " seconds");
-
-#ifdef _WIN32
-    return 0;
-#else
-    return nullptr;
-#endif
-}
-
-// Поток для второго дочернего процесса
-#ifdef _WIN32
-DWORD WINAPI spawnChild2(LPVOID param) {
-#else
-void* spawnChild2(void* param) {
-#endif
-    SharedData* sharedData = (SharedData*)param;
-    auto start_time = std::chrono::system_clock::now();
-    writeLog("Child2 started, PID: " + std::to_string(GetCurrentProcessId()));
-
-#ifdef _WIN32
-    EnterCriticalSection(&sharedData->criticalSection);
-#else
-    pthread_mutex_lock(&sharedData->mutex);
-#endif
-
-    // Умножаем на 2
-    sharedData->counter.store(sharedData->counter.load() * 2);
-    writeLog("Child2 multiplied counter by 2, new value: " + std::to_string(sharedData->counter.load()));
-
-    // Задержка для эмуляции работы
-    Sleep(2000);  // Эмуляция работы в течение 2 секунд
-
-    // Делим на 2
-    sharedData->counter.store(sharedData->counter.load() / 2);
-    writeLog("Child2 divided counter by 2, new value: " + std::to_string(sharedData->counter.load()));
-
-#ifdef _WIN32
-    LeaveCriticalSection(&sharedData->criticalSection);
-#else
-    pthread_mutex_unlock(&sharedData->mutex);
-#endif
-
-    auto end_time = std::chrono::system_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
-
-    writeLog("Child2 finished, PID: " + std::to_string(GetCurrentProcessId()) + " Duration: " + std::to_string(duration) + " seconds");
-
-#ifdef _WIN32
-    return 0;
-#else
-    return nullptr;
-#endif
-}
-
 // Поток для мониторинга дочерних процессов
 #ifdef _WIN32
 DWORD WINAPI monitorChildren(LPVOID param) {
@@ -191,7 +130,6 @@ DWORD WINAPI monitorChildren(LPVOID param) {
 void* monitorChildren(void* param) {
 #endif
     SharedData* sharedData = (SharedData*)param;
-
     while (true) {
 #ifdef _WIN32
         Sleep(3000);  // Windows Sleep
@@ -225,6 +163,95 @@ void* monitorChildren(void* param) {
         pthread_join(child2, nullptr);
 #endif
     }
+#ifdef _WIN32
+    return 0;
+#else
+    return nullptr;
+#endif
+}
+
+// Поток для первого дочернего процесса
+#ifdef _WIN32
+DWORD WINAPI spawnChild1(LPVOID param) {
+#else
+void* spawnChild1(void* param) {
+#endif
+    SharedData* sharedData = (SharedData*)param;
+    auto start_time = std::chrono::system_clock::now();
+    std::string start_time_str = getCurrentTimeString();
+    writeLog("Child1 started at " + start_time_str + ", PID: " + std::to_string(GetCurrentProcessId()));
+
+#ifdef _WIN32
+    EnterCriticalSection(&sharedData->criticalSection);
+#else
+    pthread_mutex_lock(&sharedData->mutex);
+#endif
+    sharedData->counter.fetch_add(10);  // Атомарное увеличение на 10
+    writeLog("Child1 added counter by 10, new value: " + std::to_string(sharedData->counter.load()));
+#ifdef _WIN32
+    LeaveCriticalSection(&sharedData->criticalSection);
+#else
+    pthread_mutex_unlock(&sharedData->mutex);
+#endif
+
+    auto end_time = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+    std::string end_time_str = getCurrentTimeString();
+    writeLog("Child1 finished at " + end_time_str + ", PID: " + std::to_string(GetCurrentProcessId()) + " Duration: " + std::to_string(duration) + " seconds");
+
+#ifdef _WIN32
+    return 0;
+#else
+    return nullptr;
+#endif
+}
+
+// Поток для второго дочернего процесса
+#ifdef _WIN32
+DWORD WINAPI spawnChild2(LPVOID param) {
+#else
+void* spawnChild2(void* param) {
+#endif
+    SharedData* sharedData = (SharedData*)param;
+    auto start_time = std::chrono::system_clock::now();
+    std::string start_time_str = getCurrentTimeString();
+    writeLog("Child2 started at " + start_time_str + ", PID: " + std::to_string(GetCurrentProcessId()));
+
+    // Блокируем только для изменения счетчика (умножение на 2)
+#ifdef _WIN32
+    EnterCriticalSection(&sharedData->criticalSection);
+#else
+    pthread_mutex_lock(&sharedData->mutex);
+#endif
+    sharedData->counter.store(sharedData->counter.load() * 2);  // Атомарное умножение на 2
+    writeLog("Child2 multiplied counter by 2, new value: " + std::to_string(sharedData->counter.load()));
+#ifdef _WIN32
+    LeaveCriticalSection(&sharedData->criticalSection);
+#else
+    pthread_mutex_unlock(&sharedData->mutex);
+#endif
+
+    // Эмуляция ожидания 2 секунд без блокировки счетчика
+    Sleep(2000);  // Эмуляция ожидания 2 секунды
+
+    // Делим счетчик на 2, снова блокируем для атомарной операции
+#ifdef _WIN32
+    EnterCriticalSection(&sharedData->criticalSection);
+#else
+    pthread_mutex_lock(&sharedData->mutex);
+#endif
+    sharedData->counter.store(sharedData->counter.load() / 2);  // Атомарное деление на 2
+    writeLog("Child2 divided counter by 2, new value: " + std::to_string(sharedData->counter.load()));
+#ifdef _WIN32
+    LeaveCriticalSection(&sharedData->criticalSection);
+#else
+    pthread_mutex_unlock(&sharedData->mutex);
+#endif
+
+    auto end_time = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+    std::string end_time_str = getCurrentTimeString();
+    writeLog("Child2 finished at " + end_time_str + ", PID: " + std::to_string(GetCurrentProcessId()) + " Duration: " + std::to_string(duration) + " seconds");
 
 #ifdef _WIN32
     return 0;
