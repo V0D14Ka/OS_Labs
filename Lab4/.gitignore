@@ -1,3 +1,4 @@
 test
+build
 *.exe
 temperature_log.txt
