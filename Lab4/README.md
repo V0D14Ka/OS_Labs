@@ -26,9 +26,11 @@ sudo chmod 777 script.sh
 ### Запуск
 Запустите в раздельных сессиях терминала:
 ```
+cd build
 ./main.exe
 ```
 ```
+cd build
 ./simulator.exe
 ```
 
