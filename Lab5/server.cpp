@@ -86,12 +86,16 @@ void logTemperature(sqlite3 *db, const TemperatureRecord &record) {
     sqlite3_finalize(stmt);
 }
 
-std::string getHistoryEndpoint(sqlite3 *db) {
-    const char *query = "SELECT timestamp, temperature FROM TemperatureLogs ORDER BY id DESC;";
+std::string getHistoryEndpoint(sqlite3 *db, const std::string &start_date, const std::string &end_date) {
+    std::string query = "SELECT timestamp, temperature FROM TemperatureLogs WHERE timestamp BETWEEN ? AND ? ORDER BY id DESC;";
     sqlite3_stmt *stmt;
-    if (sqlite3_prepare_v2(db, query, -1, &stmt, nullptr) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nDatabase error.";
     }
+
+    sqlite3_bind_text(stmt, 1, start_date.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, end_date.c_str(), -1, SQLITE_STATIC);
+    // std::cout << start_date.c_str();
 
     std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n[";
     bool first = true;
@@ -110,6 +114,26 @@ std::string getHistoryEndpoint(sqlite3 *db) {
     sqlite3_finalize(stmt);
     return response;
 }
+
+std::string decodeAndFormatDate(const std::string& input) {
+    std::string decoded = input;
+    
+    // Заменим '%3A' на двоеточие ':'
+    size_t pos = decoded.find("%3A");
+    while (pos != std::string::npos) {
+        decoded.replace(pos, 3, ":");
+        pos = decoded.find("%3A", pos + 1);
+    }
+
+    // Заменим 'T' на пробел
+    pos = decoded.find("T");
+    if (pos != std::string::npos) {
+        decoded.replace(pos, 1, " ");
+    }
+
+    return decoded;
+}
+
 
 
 std::string getTemperatureEndpoint(sqlite3 *db) {
@@ -157,11 +181,42 @@ std::string handleRequest(const std::string &request, sqlite3 *db) {
     } else if (request.find("GET /stats") == 0) {
         return getStatsEndpoint(db);
     } else if (request.find("GET /history") == 0) {
-        return getHistoryEndpoint(db);
+        // Извлекаем параметры start_datetime и end_datetime из запроса
+        auto start_pos = request.find("start_datetime=");
+        auto end_pos = request.find("end_datetime=");
+        // std::cout << start_pos << "  " << end_pos << std::endl;
+        // std::cout << request;
+
+        std::string start_datetime = "1970-01-01T00:00"; // По умолчанию начальная дата и время (если не передана)
+        std::string end_datetime = "2100-01-01T00:00"; // По умолчанию конечная дата и время (если не передана)
+
+        // Проверяем, есть ли параметры start_datetime и end_datetime в запросе
+        if (start_pos != std::string::npos) {
+            size_t start_datetime_end_pos = request.find("&", start_pos);  // Ищем разделитель для параметров
+            if (start_datetime_end_pos == std::string::npos) {
+                start_datetime_end_pos = request.length(); // Если параметр последний, ищем до конца строки
+            }
+            start_datetime = request.substr(start_pos + 15, start_datetime_end_pos - (start_pos + 15)); // Длина start_datetime:
+        }
+
+        if (end_pos != std::string::npos) {
+            size_t end_datetime_end_pos = request.find("&", end_pos);  // Ищем разделитель для параметров
+            if (end_datetime_end_pos == std::string::npos) {
+                end_datetime_end_pos = request.length(); // Если параметр последний, ищем до конца строки
+            }
+            end_datetime = request.substr(end_pos + 13, end_datetime_end_pos - (end_pos + 14)); // Длина end_datetime:
+        }
+
+        // std::cout << start_datetime << "  " << end_datetime << std::endl;
+        // Возвращаем данные за указанный период
+        return getHistoryEndpoint(db, decodeAndFormatDate(start_datetime), decodeAndFormatDate(end_datetime));
     } else {
         return "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nNot Found";
     }
 }
+
+
+
 
 
 int main() {
