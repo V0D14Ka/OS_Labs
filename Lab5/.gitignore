@@ -5,3 +5,4 @@ temperature_logs.db
 sqlite3.c
 sqlite3.h
 sqlite3.o
+venv

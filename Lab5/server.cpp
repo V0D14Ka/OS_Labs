@@ -86,6 +86,32 @@ void logTemperature(sqlite3 *db, const TemperatureRecord &record) {
     sqlite3_finalize(stmt);
 }
 
+std::string getHistoryEndpoint(sqlite3 *db) {
+    const char *query = "SELECT timestamp, temperature FROM TemperatureLogs ORDER BY id DESC;";
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, query, -1, &stmt, nullptr) != SQLITE_OK) {
+        return "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nDatabase error.";
+    }
+
+    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n[";
+    bool first = true;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        if (!first) {
+            response += ",";
+        }
+        first = false;
+        response += "{";
+        response += "\"timestamp\": \"" + std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))) + "\",";
+        response += "\"temperature\": " + std::to_string(sqlite3_column_double(stmt, 1));
+        response += "}";
+    }
+    response += "]";
+
+    sqlite3_finalize(stmt);
+    return response;
+}
+
+
 std::string getTemperatureEndpoint(sqlite3 *db) {
     const char *query = "SELECT timestamp, temperature FROM TemperatureLogs ORDER BY id DESC LIMIT 1;";
     sqlite3_stmt *stmt;
@@ -130,10 +156,13 @@ std::string handleRequest(const std::string &request, sqlite3 *db) {
         return getTemperatureEndpoint(db);
     } else if (request.find("GET /stats") == 0) {
         return getStatsEndpoint(db);
+    } else if (request.find("GET /history") == 0) {
+        return getHistoryEndpoint(db);
     } else {
         return "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nNot Found";
     }
 }
+
 
 int main() {
 #ifdef _WIN32
