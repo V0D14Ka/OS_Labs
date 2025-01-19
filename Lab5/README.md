@@ -9,15 +9,15 @@
 
 ## Установка
 
+Поместите файлы ```sqlite3.c``` и ```sqlite3.h```, скачанные с официального сайта SQLite в корень проекта, далее из директории Lab5 выполните следующие команды:
+
 ### Windows
 ```
-cd Lab5
 ./script.cmd
 ```
 
 ### Linux
 ```
-cd Lab5
 sudo chmod 777 script.sh
 ./script.sh
 ```
@@ -44,11 +44,13 @@ sudo chmod 777 script.sh
 - WEB:
     - Windows:
         ```
-        ./start_web.cmd
+        ./venv/Scripts/activate
+        python web.py
         ```
     - Linux:
         ```
-        ./start_web.sh
+        source venv/bin/activate
+        python web.py
         ```
 
 Сервер **http://localhost:8080/**
